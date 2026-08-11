@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   const entity = typeof body.entity === "string" ? body.entity.trim() : undefined;
 
   const query: IntelligenceQuery = { question, domain, entity, limit };
-  return NextResponse.json(investigate(query), { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(await investigate(query), { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function GET(request: NextRequest) {
@@ -28,5 +28,5 @@ export async function GET(request: NextRequest) {
   const limitParam = Number(request.nextUrl.searchParams.get("limit") ?? "25");
   const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, Math.floor(limitParam))) : 25;
   const entity = request.nextUrl.searchParams.get("entity")?.trim() || undefined;
-  return NextResponse.json(investigate({ question, domain, entity, limit }), { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(await investigate({ question, domain, entity, limit }), { headers: { "Cache-Control": "no-store" } });
 }
