@@ -1,28 +1,26 @@
-import type { IntelligenceQuery, IntelligenceResponse, Signal, SignalDomain } from "./types";
-
-const DOMAIN_ENDPOINTS: Partial<Record<SignalDomain, string>> = {
-  geopolitics: "/api/news",
-  markets: "/api/markets",
-  infrastructure: "/api/infrastructure",
-  maritime: "/api/maritime",
-  aviation: "/api/flights",
-  cyber: "/api/cyber-threats",
-  weather: "/api/air-quality",
-  trade: "/api/gdelt",
-  general: "/api/live-news",
-};
+import type { IntelligenceQuery, IntelligenceResponse, Signal, SignalDomain } from './types';
+import { getRuntimeSources } from './source-registry';
 
 export function planQuery(query: IntelligenceQuery) {
-  const domains = query.domains?.length ? query.domains : ["general", "geopolitics", "markets"] as SignalDomain[];
-  return domains.map((domain) => ({
-    domain,
-    endpoint: DOMAIN_ENDPOINTS[domain] ?? null,
+  const domains = query.domains?.length ? query.domains : ['general','geopolitics','markets'] as SignalDomain[];
+  return getRuntimeSources(domains).map((source) => ({
+    domain: source.domain,
+    endpoint: source.endpoint,
+    source: source.id,
+    priority: source.priority,
     query: query.query.trim(),
   }));
 }
 
 export function mergeSignals(query: IntelligenceQuery, batches: Signal[][]): IntelligenceResponse {
-  const signals = batches.flat().slice(0, Math.max(1, Math.min(query.limit ?? 50, 200)));
+  const limit = Math.max(1, Math.min(query.limit ?? 50, 200));
+  const seen = new Set<string>();
+  const signals = batches.flat().filter((signal) => {
+    const key = `${signal.source}:${signal.title.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, limit);
   const sources = [...new Set(signals.map((signal) => signal.source))];
 
   return {
@@ -30,6 +28,6 @@ export function mergeSignals(query: IntelligenceQuery, batches: Signal[][]): Int
     generatedAt: new Date().toISOString(),
     sources,
     signals,
-    status: signals.length ? "ok" : "partial",
+    status: signals.length ? 'ok' : 'partial',
   };
 }
