@@ -1,0 +1,37 @@
+import { NextResponse } from "next/server";
+import { getEnabledComponents, SYSTEM_VERSION } from "@/lib/system/config";
+import type { IntelligenceQuery, IntelligenceResponse } from "@/lib/system/types";
+
+export async function GET() {
+  return NextResponse.json({
+    platform: "OSIRIS",
+    version: SYSTEM_VERSION,
+    status: "operational",
+    generatedAt: new Date().toISOString(),
+    components: getEnabledComponents(),
+  });
+}
+
+export async function POST(request: Request) {
+  let body: IntelligenceQuery;
+
+  try {
+    body = (await request.json()) as IntelligenceQuery;
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
+
+  if (!body.query || body.query.trim().length < 2) {
+    return NextResponse.json({ error: "A non-empty query is required." }, { status: 400 });
+  }
+
+  const response: IntelligenceResponse = {
+    query: body.query.trim(),
+    generatedAt: new Date().toISOString(),
+    sources: ["osiris"],
+    signals: [],
+    status: "partial",
+  };
+
+  return NextResponse.json(response);
+}
