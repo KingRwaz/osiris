@@ -45,19 +45,24 @@ Domain Orchestrator
 
 ## Current implementation
 
-- `/api/system` exposes the system registry and accepts normalized intelligence queries.
+- `/api/system` exposes the system registry and now executes live multi-domain intelligence queries.
 - `src/lib/system/types.ts` defines the canonical signal and query contracts.
 - `src/lib/system/config.ts` defines enabled platform components.
-- `src/lib/system/orchestrator.ts` maps intelligence domains to existing OSIRIS data endpoints.
+- `src/lib/system/orchestrator.ts` plans domains, calls existing OSIRIS data endpoints in parallel, and merges results.
+- `src/lib/system/normalize.ts` converts heterogeneous endpoint payloads into the canonical `Signal` contract without assuming a single provider schema.
+- `/api/investigate` exposes the evidence-first investigation engine.
+- `src/lib/osiris/core/types.ts` defines evidence, entity, assessment and investigation contracts.
+- `src/lib/osiris/core/store.ts` provides the bounded in-process evidence store used by the first investigation-engine implementation.
+- `src/lib/osiris/core/engine.ts` ranks evidence using source authority, confidence, freshness and query relevance, then produces a confidence-banded assessment.
 
-## Next implementation sequence
+## Implementation sequence
 
-1. Connect the orchestrator to the existing OSIRIS data endpoints.
-2. Normalize each endpoint into the canonical `Signal` contract.
-3. Add persistent event storage.
-4. Add document ingestion through MinerU.
-5. Add vector/knowledge retrieval through Qdrant/OpenViking.
-6. Add financial research adapters through OpenBB.
-7. Add workflow execution through n8n.
-8. Add observability and provenance checks.
-9. Add agent reasoning only after the evidence layer is operational.
+1. Live endpoint integration and canonical signal normalization — implemented in this development increment.
+2. Evidence-first investigation API and bounded evidence store — implemented as the initial reasoning boundary.
+3. Persistent event/evidence storage with provenance and deduplication.
+4. Document ingestion through MinerU.
+5. Vector/knowledge retrieval through Qdrant/OpenViking.
+6. Financial research adapters through OpenBB.
+7. Workflow execution through n8n.
+8. Observability, provenance validation and source-health monitoring.
+9. Agent reasoning only after the evidence layer is operational and auditable.
