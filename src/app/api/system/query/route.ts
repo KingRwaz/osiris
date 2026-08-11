@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { IntelligenceQuery, SignalDomain } from '@/lib/system/types';
-import { getRuntimeSources } from '@/lib/system/source-registry';
-import { normalizeBatch } from '@/lib/system/normalizer';
+import { collectRuntimeSources } from '@/lib/system/adapter';
 import { mergeSignals } from '@/lib/system/orchestrator';
 
 export async function POST(request: NextRequest) {
@@ -13,15 +12,10 @@ export async function POST(request: NextRequest) {
   };
   if (!query.query.trim()) return NextResponse.json({ error: 'query is required' }, { status: 400 });
 
-  const sources = getRuntimeSources(query.domains).sort((a, b) => b.priority - a.priority);
-  const base = request.nextUrl.origin;
-  const batches = await Promise.all(sources.map(async source => {
-    try {
-      const response = await fetch(`${base}${source.endpoint}?q=${encodeURIComponent(query.query)}`, { signal: AbortSignal.timeout(10000), cache: 'no-store' });
-      if (!response.ok) return [];
-      return normalizeBatch(source.domain, source.id, await response.json());
-    } catch { return []; }
-  }));
-
-  return NextResponse.json(mergeSignals(query, batches));
+  const results = await collectRuntimeSources(query, async (input, init) => {
+    const url = new URL(input, request.nextUrl.origin);
+    return fetch(url.toString(), { ...init, signal: AbortSignal.timeout(10000), cache: 'no-store' });
+  });
+  const response = mergeSignals(query, results.map(result => result.signals));
+  return NextResponse.json({ ...response, adapterErrors: results.filter(r => r.error).map(r => ({ source: r.source, error: r.error })) });
 }
