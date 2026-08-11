@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getEnabledComponents, SYSTEM_VERSION } from "@/lib/system/config";
-import type { IntelligenceQuery, IntelligenceResponse } from "@/lib/system/types";
+import { executeQuery } from "@/lib/system/orchestrator";
+import type { IntelligenceQuery } from "@/lib/system/types";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   return NextResponse.json({
@@ -25,13 +28,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A non-empty query is required." }, { status: 400 });
   }
 
-  const response: IntelligenceResponse = {
+  const origin = new URL(request.url).origin;
+  const response = await executeQuery({
     query: body.query.trim(),
-    generatedAt: new Date().toISOString(),
-    sources: ["osiris"],
-    signals: [],
-    status: "partial",
-  };
+    domains: body.domains,
+    limit: body.limit,
+  }, origin);
 
-  return NextResponse.json(response);
+  return NextResponse.json(response, {
+    headers: { "Cache-Control": "no-store" },
+  });
 }
