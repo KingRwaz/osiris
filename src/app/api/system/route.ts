@@ -1,11 +1,24 @@
 import { NextResponse } from "next/server";
 import { getEnabledComponents, SYSTEM_VERSION } from "@/lib/system/config";
 import { executeQuery } from "@/lib/system/orchestrator";
+import { recentSignals } from "@/lib/system/persistence";
 import type { IntelligenceQuery } from "@/lib/system/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  if (url.searchParams.get("view") === "signals") {
+    const limit = Number(url.searchParams.get("limit") ?? 50);
+    const signals = await recentSignals(Number.isFinite(limit) ? limit : 50);
+    return NextResponse.json({
+      platform: "OSIRIS",
+      generatedAt: new Date().toISOString(),
+      count: signals.length,
+      signals,
+    }, { headers: { "Cache-Control": "no-store" } });
+  }
+
   return NextResponse.json({
     platform: "OSIRIS",
     version: SYSTEM_VERSION,
