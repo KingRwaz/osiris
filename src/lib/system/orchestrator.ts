@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { persistSignals } from "./persistence";
 import type { IntelligenceQuery, IntelligenceResponse, Signal, SignalDomain } from "./types";
 
 const DOMAIN_ENDPOINTS: Partial<Record<SignalDomain, string>> = {
@@ -30,7 +32,12 @@ function text(value: unknown): string {
   try { return JSON.stringify(value); } catch { return ""; }
 }
 
-function normalizeItem(domain: SignalDomain, item: Record<string, unknown>, index: number): Signal {
+function stableId(domain: SignalDomain, source: string, title: string, url: string) {
+  const identity = [domain, source, title, url].map((value) => value.trim().toLowerCase()).join("|");
+  return `osiris:${createHash("sha256").update(identity).digest("hex").slice(0, 24)}`;
+}
+
+function normalizeItem(domain: SignalDomain, item: Record<string, unknown>): Signal {
   const title = text(item.title ?? item.name ?? item.symbol ?? item.id ?? `${domain} observation`);
   const summary = text(item.summary ?? item.description ?? item.headline ?? item.status ?? item.value ?? item.price ?? "");
   const source = text(item.source ?? item.provider ?? item.owner ?? "OSIRIS endpoint");
@@ -42,10 +49,9 @@ function normalizeItem(domain: SignalDomain, item: Record<string, unknown>, inde
     : risk !== undefined ? Math.max(0.1, Math.min(1, risk / 10)) : 0.75;
   const tags = [domain, ...["country", "region", "category", "type", "status", "symbol"].map((key) => text(item[key])).filter(Boolean)];
   const entities = [item.name, item.country, item.city, item.symbol].map(text).filter(Boolean).slice(0, 8);
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
 
   return {
-    id: `osiris:${domain}:${index}:${slug}`,
+    id: stableId(domain, source, title, url),
     domain,
     title,
     summary: summary.slice(0, 1200),
@@ -84,7 +90,7 @@ function normalizePayload(domain: SignalDomain, payload: unknown): Signal[] {
     if (!records.length && ["title", "name", "status", "value", "price"].some((k) => k in root)) records.push(root);
   }
 
-  return records.slice(0, 200).map((item, index) => normalizeItem(domain, item, index));
+  return records.slice(0, 200).map((item) => normalizeItem(domain, item));
 }
 
 async function fetchDomain(origin: string, domain: SignalDomain, endpoint: string, query: string): Promise<Signal[]> {
@@ -106,7 +112,14 @@ async function fetchDomain(origin: string, domain: SignalDomain, endpoint: strin
 export async function executeQuery(query: IntelligenceQuery, origin: string): Promise<IntelligenceResponse> {
   const plan = planQuery(query).filter((item) => item.endpoint);
   const batches = await Promise.all(plan.map((item) => fetchDomain(origin, item.domain, item.endpoint as string, item.query)));
-  return mergeSignals(query, batches);
+  const response = mergeSignals(query, batches);
+  const persistence = await persistSignals(response.signals);
+
+  return {
+    ...response,
+    signals: persistence.stored,
+    storage: { backend: persistence.backend, persisted: persistence.stored.length },
+  };
 }
 
 export function mergeSignals(query: IntelligenceQuery, batches: Signal[][]): IntelligenceResponse {
