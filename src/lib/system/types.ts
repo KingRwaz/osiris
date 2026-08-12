@@ -37,6 +37,10 @@ export type IntelligenceResponse = {
   sources: string[];
   signals: Signal[];
   status: "ok" | "partial" | "error";
+  storage?: {
+    backend: "supabase" | "memory";
+    persisted: number;
+  };
 };
 
 export type SystemComponent = {
