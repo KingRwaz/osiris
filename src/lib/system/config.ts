@@ -11,9 +11,10 @@ export const SYSTEM_COMPONENTS: SystemComponent[] = [
   { id: "n8n", name: "n8n", role: "Workflow execution adapter", kind: "execution", enabled: true },
   { id: "erpnext", name: "ERPNext", role: "Enterprise operations adapter", kind: "execution", enabled: true },
   { id: "grafana", name: "Grafana", role: "Observability adapter", kind: "observability", enabled: true },
+  { id: "signal-store", name: "Signal Evidence Store", role: "Canonical observation persistence", kind: "data", enabled: true },
 ];
 
-export const SYSTEM_VERSION = "0.1.0";
+export const SYSTEM_VERSION = "0.2.0";
 
 export function getEnabledComponents() {
   return SYSTEM_COMPONENTS.filter((component) => component.enabled);
